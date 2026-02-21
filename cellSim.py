@@ -4,17 +4,47 @@ import math
 
 
 class Cell:
-    def __init__(self, cords):
+    def __init__(self, cords, lifeTime=500, color=None):
         self.cords = cords
         self.rotation = [1, 0]
-        self.lifeTime = 100
+        self.lifeTime = lifeTime
+        self.energy = 50 # тратится на действие, если 0 - организм погибает
         self.isAlife = True
+
+        self.genome = [random.randint(0,100) for _ in range(16)]
+        #self.genome = self.generateGenome()
+        self.genomeStep = 0 # убрать потом?
         
-        
-        
-        self.genome = [None for _ in range(8)]       
+        if color==None: 
+            self.color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+        else: self.color = color
+
         #self.speed = speed # или max speed и speed выбирается отдельно
         #self.findRadius = None
+
+
+    def update(self):
+        self.makeStep()       
+        self.energy-=1
+        self.lifeTime-=1
+        if self.energy==0 or self.lifeTime==0: 
+            self.die()
+
+    def makeStep(self):
+        s = self.genome[self.genomeStep]
+        if 0 <= s <25: 
+            self.moveForward()
+        if 25 <= s < 30: 
+            self.turnLeft()
+        if 30 <= s < 35: 
+            self.turnRight()
+        if 35 <= s < 65 and len(alotCells) < 1000:
+            self.replicate()
+        if 65 <= s < 90:
+            self.getEnergy()
+        
+        self.genomeStep+=1
+        if self.genomeStep > len(self.genome)-1: self.genomeStep=0
 
     def moveForward(self):
         #сделать проверку на возможность шага
@@ -27,10 +57,10 @@ class Cell:
 
         # если за границей - переместиться, добавить проверку занята ли
         if self.cords[0]<0:self.cords[0]=screen.get_width()+self.cords[0]
-        if self.cords[0]>screen.get_width():self.cords[0]=self.cords[0]-screen.get_width()
+        if self.cords[0]>=screen.get_width():self.cords[0]=self.cords[0]-screen.get_width()
 
         if self.cords[1]<0:self.cords[1]=screen.get_height()+self.cords[1]
-        if self.cords[1]>screen.get_height():self.cords[1]=self.cords[1]-screen.get_height()
+        if self.cords[1]>=screen.get_height():self.cords[1]=self.cords[1]-screen.get_height()
 
     def turnRight(self):
         if self.rotation==[1,0]:self.rotation=[0,1]
@@ -45,16 +75,24 @@ class Cell:
         elif self.rotation==[0,1]: self.rotation=[1,0]
 
     def replicate(self):
-        newCell = Cell([self.cords[0], self.cords[1]])
+        newCell = Cell([self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]])
         newCell.rotation = self.rotation
 
-#        newGenome = self.genome
-#        for i in range(len(newGenome)):
-#            if random.randint(0,99)>97:
-#                newGenome[i]+=random.randint(-10,10)
-#            if newGenome[i]>63:newGenome[i]-63
-#            elif newGenome[i]<0:newGenome[i]+63
-#        newCell.genome = newGenome
+        newGenome = self.genome.copy()
+        for i in range(len(newGenome)):
+            if random.randint(0,99)>98:
+                newGenome[i]+=random.randint(-10,10)
+            if newGenome[i]>100:newGenome[i] = newGenome[i]-100
+            elif newGenome[i]<0:newGenome[i] = newGenome[i]+100
+        newCell.genome = newGenome
+
+        newLifeTime = self.lifeTime
+        if random.randint(0,99)>50:
+            newLifeTime+=random.randint(-100,100)
+        if newLifeTime<=0: newLifeTime=50
+        newCell.lifeTime = newLifeTime
+
+        newCell.color = self.color
 
         alotCells.append(newCell)
 
@@ -63,8 +101,12 @@ class Cell:
 
     def generateGenome(self): 
         for i in range(len(self.genome)):
-            self.genome[i] = random.randint(0,63)
+            self.genome[i] = random.randint(0,100)
 
+    def getEnergy(self):
+        if self.cords[1]<screen.get_height()/2: # меньше т к счет начинается с левого верхнего угла, потому "сверху" это координаты меньше половины
+            self.energy+=5
+            if self.energy>100: self.energy=100
 
 
 
@@ -76,56 +118,44 @@ running = True
 dt = 0
 
 
-alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))) for _ in range(5)]
+alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))) for _ in range(200)]
 player = Cell([screen.get_width()/2, screen.get_height()/2])
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    screen.fill("black")
-
+    screen.fill((63, 63, 63))
+    pygame.draw.rect(screen, (191, 191, 191), (0, 0, screen.get_width(), screen.get_height()/2))
 
     # ai cells ######################################################
     for i in range(len(alotCells)):
-        alotCells[i].moveForward()
-        if random.randint(0, 99)>95:
-            if random.randint(0, 1)==0: alotCells[i].turnLeft()
-            else: alotCells[i].turnRight()
-        if random.randint(0, 99)>97:
-            if len(alotCells) < 500:
-                alotCells[i].replicate()
-        alotCells[i].lifeTime-=1
-        if alotCells[i].lifeTime==0: alotCells[i].die()
-        if alotCells[i].isAlife: pygame.draw.rect(screen, "red", (alotCells[i].cords[0], alotCells[i].cords[1], 3, 3))
+        alotCells[i].update()
+
+        if alotCells[i].isAlife: pygame.draw.rect(screen, alotCells[i].color, (alotCells[i].cords[0], alotCells[i].cords[1], 3, 3))
 
     alifeCells = []
     for i in range(len(alotCells)):
         if alotCells[i].isAlife: alifeCells.append(alotCells[i])
     alotCells = alifeCells
     
-    print(len(alotCells))
+    #print(len(alotCells))
 
     # player cell ######################################################
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_w]:
         player.moveForward()
-        print("forward")
     if keys[pygame.K_a]:
         player.turnLeft()
-        print("left")
     if keys[pygame.K_d]:
         player.turnRight()
-        print("right")
+    if keys[pygame.K_SPACE]:
+        player.replicate()
 
 
     pygame.draw.rect(screen, "blue", (player.cords[0], player.cords[1], 3, 3))
 
-    dt = clock.tick(10) / 1000.0 # limits FPS to n fps
+    dt = clock.tick(100) / 1000.0 # limits FPS to n fps
     pygame.display.flip()
 pygame.quit()
-
-
-
-
