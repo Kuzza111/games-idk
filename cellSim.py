@@ -52,6 +52,9 @@ class Cell:
                 #клетки между начальной и конечной заняты
 
         # сделать шаг, заменить на ЗАПРОС шага, если можно - шаг
+        for i in alotCells:
+            if i.cords == [self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]]:
+                return
         self.cords[0]+=self.rotation[0]
         self.cords[1]+=self.rotation[1]
 
@@ -75,6 +78,9 @@ class Cell:
         elif self.rotation==[0,1]: self.rotation=[1,0]
 
     def replicate(self):
+        for i in alotCells:
+            if i.cords == [self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]]:
+                return
         newCell = Cell([self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]])
         newCell.rotation = self.rotation
 
