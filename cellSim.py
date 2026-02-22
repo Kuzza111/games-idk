@@ -104,9 +104,9 @@ class Cell:
             self.genome[i] = random.randint(0,100)
 
     def getEnergy(self):
-        if self.cords[1]<screen.get_height()/2: # меньше т к счет начинается с левого верхнего угла, потому "сверху" это координаты меньше половины
-            self.energy+=5
-            if self.energy>100: self.energy=100
+        if (self.cords[1]<screen.get_height()/2 and self.cords[0]<screen.get_width()/2) or (self.cords[1]>screen.get_height()/2 and self.cords[0]>screen.get_width()/2) : # высота меньше т к счет начинается с левого верхнего угла, потому "сверху" это координаты меньше половины
+                self.energy+=5
+                if self.energy>100: self.energy=100
 
 
 
@@ -126,7 +126,9 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     screen.fill((63, 63, 63))
-    pygame.draw.rect(screen, (191, 191, 191), (0, 0, screen.get_width(), screen.get_height()/2))
+    pygame.draw.rect(screen, (191, 191, 191), (0, 0, screen.get_width()/2, screen.get_height()/2))
+    pygame.draw.rect(screen, (191, 191, 191), (screen.get_width()/2, screen.get_height()/2, screen.get_width()/2, screen.get_height()/2))
+
 
     # ai cells ######################################################
     for i in range(len(alotCells)):
@@ -138,6 +140,9 @@ while running:
     for i in range(len(alotCells)):
         if alotCells[i].isAlife: alifeCells.append(alotCells[i])
     alotCells = alifeCells
+    if len(alotCells)==0: 
+        print("all cells are dead, creating new")
+        alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))) for _ in range(200)]
     
     #print(len(alotCells))
 
