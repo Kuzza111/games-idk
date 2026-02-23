@@ -1,17 +1,19 @@
 import pygame
 import random
 import math
+import copy
 
 
 class Cell:
     def __init__(self, cords, lifeTime=100, color=None, genome=None):
         self.cords = cords
+        cellsCoordinates[int(cords[0])][int(cords[1])] = self
         self.rotation = [1, 0]
         self.lifeTime = lifeTime
         self.energy = 50 # тратится на действие, если 0 - организм погибает
         self.isAlife = True
 
-        if genome == None: self.genome = [random.randint(0,100) for _ in range(16)]
+        if genome == None: self.genome = [random.randint(0,100) for _ in range(32)]
         else: self.genome = genome
         #self.genome = self.generateGenome()
         self.genomeStep = 0 # убрать потом?
@@ -37,7 +39,7 @@ class Cell:
             self.turnLeft()
         if 25 <= s < 30: 
             self.turnRight()
-        if 30 <= s < 65 and len(alotCells) < 1000:
+        if 30 <= s < 65 and len(alotCells) < SIM_WIDTH*SIM_HEIGHT:
             self.replicate()
         if 65 <= s < 100:
             self.getEnergy()
@@ -46,23 +48,24 @@ class Cell:
         if self.genomeStep > len(self.genome)-1: self.genomeStep=0
 
     def moveForward(self):
-        #сделать проверку на возможность шага
-            #клетка занята
-                #клетки между начальной и конечной заняты
+        #сделать проверку на то заняты ли клетки между начальной и конечной (если добавить скорость)
 
-        # сделать шаг, заменить на ЗАПРОС шага, если можно - шаг
-        for i in alotCells:
-            if i.cords == [self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]]:
-                return
-        self.cords[0]+=self.rotation[0]
-        self.cords[1]+=self.rotation[1]
+        old_x = self.cords[0]
+        old_y = self.cords[1]
 
-        # если за границей - переместиться, добавить проверку занята ли
-        if self.cords[0]<0:self.cords[0]=screen.get_width()+self.cords[0]
-        if self.cords[0]>=screen.get_width():self.cords[0]=self.cords[0]-screen.get_width()
+        target_x = self.cords[0]+self.rotation[0]
+        target_y = self.cords[1]+self.rotation[1]
 
-        if self.cords[1]<0:self.cords[1]=screen.get_height()+self.cords[1]
-        if self.cords[1]>=screen.get_height():self.cords[1]=self.cords[1]-screen.get_height()
+        if int(target_x)<0 or int(target_y)<0 or int(target_x)>SIM_WIDTH-1 or int(target_y)>SIM_HEIGHT-1: return
+
+        if cellsCoordinates[int(target_x)][int(target_y)]!=None: return
+        
+
+        self.cords[0]=int(target_x)
+        self.cords[1]=int(target_y)
+
+        cellsCoordinates[int(self.cords[0])][int(self.cords[1])]=self
+        cellsCoordinates[int(old_x)][int(old_y)]=None
 
     def turnRight(self):
         if self.rotation==[1,0]:self.rotation=[0,1]
@@ -80,11 +83,13 @@ class Cell:
         if self.energy<30:
             #print("not enough energy")
             return
-        for i in alotCells:
-            if i.cords == [self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]]:
-                #self.turnLeft()
-                #print("coordinates are not empty")
-                return
+        target_x = self.cords[0]+self.rotation[0]
+        target_y = self.cords[1]+self.rotation[1]
+        if int(target_x)<0 or int(target_y)<0 or int(target_x)>SIM_WIDTH-1 or int(target_y)>SIM_HEIGHT-1:
+            return
+        if cellsCoordinates[int(target_x)][int(target_y)]!=None:
+            return
+
         #print("new cell added")
         newGenome = self.genome.copy()
         for i in range(len(newGenome)):
@@ -108,6 +113,8 @@ class Cell:
 
     def die(self):
         self.isAlife = False
+        cellsCoordinates[int(self.cords[0])][int(self.cords[1])]=None
+
         #print("cell died, energy:", self.energy, "lifetime:", self.lifeTime)
 
 
@@ -116,23 +123,26 @@ class Cell:
             self.genome[i] = random.randint(0,100)
 
     def getEnergy(self):
-        if self.cords[1]<screen.get_height()/2: 
-            self.energy+=30
+        if self.cords[1]<SIM_HEIGHT/3: self.energy+=25
+        elif self.cords[1]<SIM_HEIGHT/3*2: self.energy+=15
+        else: self.energy+=5
         if self.energy>50: self.energy=50
 
     
 
-
+SIM_WIDTH = 150
+SIM_HEIGHT = 100
+multiplier = 10
 
 pygame.init()
-screen = pygame.display.set_mode((500, 250))
+screen = pygame.display.set_mode((SIM_WIDTH * multiplier, SIM_HEIGHT * multiplier))
 clock = pygame.time.Clock()
 running = True
 dt = 0
 
-
-alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))) for _ in range(500)]
-player = Cell([screen.get_width()/2, screen.get_height()/2])
+cellsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
+alotCells = [Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1))) for _ in range(200)]
+player = Cell([SIM_WIDTH/2, SIM_HEIGHT/2])
 #player.genome = [70, 60, 25, 20] # для порождения клеток с заданным геномом
 
 while running:
@@ -140,9 +150,11 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     screen.fill((31, 31, 31))
-    #for i in range(screen.get_height()):
-    #    pygame.draw.rect(screen, (i/screen.get_height()*32, i/screen.get_height()*32, i/screen.get_height()*32), (0, i, screen.get_width(), 1))
-    pygame.draw.rect(screen, (127, 127, 127), (0, 0, screen.get_width(), screen.get_height()/2))
+    #for i in range(SIM_HEIGHT):
+    #    pygame.draw.rect(screen, (i/SIM_HEIGHT*32, i/SIM_HEIGHT*32, i/SIM_HEIGHT*32), (0, i, SIM_WIDTH, 1))
+    pygame.draw.rect(screen, (127, 127, 127), (0, 0, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+    pygame.draw.rect(screen, (63, 63, 63), (0, SIM_HEIGHT/3 * multiplier, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+
         
 
 
@@ -158,15 +170,21 @@ while running:
         if alotCells[i].isAlife: 
             alifeCells.append(alotCells[i])
             colorsOfCells.append(alotCells[i].color)
-            pygame.draw.rect(screen, alotCells[i].color, (alotCells[i].cords[0], alotCells[i].cords[1], 3, 3))
 
     alotCells = alifeCells
     
+    for i in range(len(alifeCells)):
+        pygame.draw.rect(screen, alotCells[i].color, (alotCells[i].cords[0] * multiplier, alotCells[i].cords[1] * multiplier, multiplier, multiplier))
+
     #print("alotcells size: ", len(alotCells))
 
     if len(alotCells)==0:
         print("all cells are dead, resetting sim")
-        alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))) for _ in range(200)]
+        playerCopy=copy.deepcopy(player)
+        cellsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
+        alotCells = [Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1))) for _ in range(200)]
+        player = playerCopy
+
 
     elif len(alotCells)>0:
         isAllCellsOneAncestor = True
@@ -176,10 +194,13 @@ while running:
                 break
     
         if isAllCellsOneAncestor==True:
-            print(f"cell with color {colorsOfCells[0]} won, resetting sim with half population genome: {alifeCells[0].genome}")
-            alotCells = [Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height())), genome=alifeCells[0].genome) for _ in range(100)]
+            print(f"cell with color {colorsOfCells[0]} won, resetting sim with 1/3 population genome: {alifeCells[0].genome}")
+            playerCopy=copy.deepcopy(player)
+            cellsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
+            alotCells = [Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1)), genome=alifeCells[0].genome) for _ in range(50)]
             for i in range(100):
-                alotCells.append(Cell(pygame.Vector2(random.randint(0, screen.get_width()), random.randint(0, screen.get_height()))))
+                alotCells.append(Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1))))
+            player = playerCopy
 
 
     
@@ -199,8 +220,8 @@ while running:
     player.energy = 100
 
 
-    pygame.draw.rect(screen, "blue", (player.cords[0], player.cords[1], 3, 3))
+    pygame.draw.rect(screen, "blue", (player.cords[0] * multiplier, player.cords[1] * multiplier, multiplier, multiplier))
 
-    dt = clock.tick(1000) / 1000.0 # limits FPS to n fps
+    dt = clock.tick(100) / 1000.0 # limits FPS to n fps
     pygame.display.flip()
 pygame.quit()
