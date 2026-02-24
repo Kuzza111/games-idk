@@ -1,10 +1,8 @@
 import pygame
 import random
-import math
-import copy
 
-SIM_WIDTH = 100
-SIM_HEIGHT = 50
+SIM_WIDTH = 75
+SIM_HEIGHT = 75
 multiplier = 5
 
 class World:
@@ -14,6 +12,9 @@ class World:
         self.objects = []
         self.objectsCoordinates = [[None for _ in range(self.width)] for _ in range(self.height)]
         self.player = None
+
+        self.lightMap = []
+        self.generateLightMap()
 
     def update(self):
         for i in range(len(self.objects)):
@@ -26,32 +27,7 @@ class World:
         for i in range(len(self.objects)):
             if self.objects[i].isAlife: 
                 alifeObjects.append(self.objects[i])
-                colorsOfCells.append(self.objects[i].color)
         self.objects = alifeObjects
-
-        if len(world.objects)==0:
-            print("all cells are dead, resetting sim")
-            playerCopy=copy.deepcopy(self.player)
-            self.objectsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
-            self.objects = [Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1))) for _ in range(200)]
-            self.player = playerCopy
-
-
-        elif len(self.objects)>0:
-            isAllCellsOneAncestor = True
-            for i in range(len(colorsOfCells)):
-                if colorsOfCells[i] != colorsOfCells[0]:
-                    isAllCellsOneAncestor = False
-                    break
-        
-            if isAllCellsOneAncestor==True:
-                print(f"cell with color {colorsOfCells[0]} won, resetting sim with 1/3 population genome: {self.objects[0].genome}")
-                playerCopy=copy.deepcopy(self.player)
-                self.objectsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
-                self.objects = [Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1)), genome=self.objects[0].genome) for _ in range(50)]
-                for i in range(100):
-                    self.objects.append(Cell(pygame.Vector2(random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1))))
-                self.player = playerCopy
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
@@ -64,12 +40,21 @@ class World:
             self.player.replicate()
         self.player.energy = 100
 
+    def generateLightMap(self):
+        lMap = [[None for _ in range(self.height)] for _ in range(self.width)]
+        for i in range(len(lMap)):
+            for j in range(len(lMap[0])):
+                lMap[i][j] = (i + j)//6#int(self.height/i)
+        self.lightMap = lMap
+        print(self.lightMap)
+        print(len(self.lightMap), " ", len(self.lightMap[0]))
+
 world = World(SIM_WIDTH, SIM_HEIGHT)
 world.objectsCoordinates = [[None for _ in range(SIM_HEIGHT)] for _ in range(SIM_WIDTH)]
 
 
 class Cell:
-    def __init__(self, cords, lifeTime=100, color=None, genome=None):
+    def __init__(self, cords, lifeTime=100, genome=None):
         self.cords = cords
         world.objectsCoordinates[int(cords[0])][int(cords[1])] = self
         self.rotation = [1, 0]
@@ -77,13 +62,25 @@ class Cell:
         self.energy = 50 # тратится на действие, если 0 - организм погибает
         self.isAlife = True
 
-        if genome == None: self.genome = self.generateRandomGenome(32)
+        if genome == None: self.genome = self.generateRandomGenome(16)
         else: self.genome = genome
         #self.genome = self.generateGenome()
         self.genomeStep = 0 # убрать потом?
         
-        if color==None: self.color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-        else: self.color = color
+        blue = 0
+        for i in range(len(self.genome)):
+            if self.genome[i] < 20:
+                blue+=1
+        red = 0
+        for i in range(len(self.genome)):
+            if 80 <= self.genome[i] < 100:
+                red+=1
+        green = 0
+        for i in range(len(self.genome)):
+            if 65 <= self.genome[i] < 80:
+                green+=1
+        self.color = (255//len(self.genome)*red, 255//len(self.genome)*green, 255//len(self.genome)*blue)
+
 
         #self.speed = speed # или max speed и speed выбирается отдельно
         #self.findRadius = None
@@ -169,7 +166,7 @@ class Cell:
             newLifeTime+=random.randint(-10,10)
         if newLifeTime<=0: newLifeTime=20
 
-        newCell = Cell([self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]], color=self.color, genome=newGenome, lifeTime=newLifeTime)
+        newCell = Cell([self.cords[0]+self.rotation[0], self.cords[1]+self.rotation[1]], genome=newGenome, lifeTime=newLifeTime)
         newCell.rotation = self.rotation
 
         newCell.energy = self.energy//2
@@ -188,9 +185,7 @@ class Cell:
         return [random.randint(0,100) for _ in range(length)]
 
     def photosynthesize(self):
-        if self.cords[1]<SIM_HEIGHT/3: self.energy+=20
-        elif self.cords[1]<SIM_HEIGHT/3*2: self.energy+=10
-        else: self.energy+=5
+        self.energy+=world.lightMap[int(self.cords[0])][int(self.cords[1])]
         if self.energy>50: self.energy=50
 
     def biteCell(self):
@@ -225,10 +220,9 @@ while running:
     screen.fill((31, 31, 31))
     #for i in range(SIM_HEIGHT):
     #    pygame.draw.rect(screen, (i/SIM_HEIGHT*32, i/SIM_HEIGHT*32, i/SIM_HEIGHT*32), (0, i, SIM_WIDTH, 1))
-    pygame.draw.rect(screen, (127, 127, 127), (0, 0, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
-    pygame.draw.rect(screen, (63, 63, 63), (0, SIM_HEIGHT/3 * multiplier, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+    #pygame.draw.rect(screen, (127, 127, 127), (0, 0, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+    #pygame.draw.rect(screen, (63, 63, 63), (0, SIM_HEIGHT/3 * multiplier, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
 
-    colorsOfCells = []
 
     world.makeStep()
 
