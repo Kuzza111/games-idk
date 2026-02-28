@@ -1,11 +1,9 @@
 import pygame
 import random
-import json
-from pathlib import Path
 
 SIM_WIDTH = 100
 SIM_HEIGHT = 100
-multiplier = 10
+multiplier = 5
 
 class World:
     def __init__(self, width, height):
@@ -19,19 +17,20 @@ class World:
         self.generateLightMap()
 
     def update(self):
-        for i in range(len(self.objects)):
-            self.objects[i].update()
+        for i in self.objects:
+            i.update()
 
     def makeStep(self):
         self.update()
 
         alifeObjects = []
         for i in range(len(self.objects)):
-            if self.objects[i].isAlife: 
-                alifeObjects.append(self.objects[i])
+            if self.objects[i].isAlife: alifeObjects.append(self.objects[i])
+            else: self.objectsCoordinates[int(self.objects[i].cords[0])][int(self.objects[i].cords[1])]=None
+
         self.objects = alifeObjects
 
-        self.playerMovement()
+        self.playerMovement() # for testing and fun
 
     def generateLightMap(self):
         lMap = [[None for _ in range(self.height)] for _ in range(self.width)]
@@ -41,7 +40,7 @@ class World:
                 if i<len(lMap)//2: lMap[i][j] = (len(lMap)//2 - (len(lMap)//2-i))//4
                 else: lMap[i][j] = (len(lMap)-i)//4
         self.lightMap = lMap
-        print(lMap)
+        #print(lMap)
 
     def playerMovement(self):
         keys = pygame.key.get_pressed()
@@ -98,20 +97,19 @@ class Cell:
         self.rotation = [1, 0]
         self.maxLifeTime = maxLifeTime
         self.lifeTime = maxLifeTime
-        self.energy = 50 # тратится на действие, если 0 - организм погибает
+        self.energy = 50
         self.isAlife = True
 
         if genome == None: self.genome = self.generateRandomGenome(16)
         else: self.genome = genome
-        #self.genome = self.generateGenome()
         self.genomeStep = 0 # убрать потом?
         
-        stepAmount = [0, 0, 0]
+        self.stepAmount = [0, 0, 0]
         for i in range(len(self.genome)):
-            if 80 <= self.genome[i] < 100: stepAmount[0]+=1
-            if 65 <= self.genome[i] < 80: stepAmount[1]+=1
-            if self.genome[i] < 20: stepAmount[2]+=1
-        self.color = (255//len(self.genome)*stepAmount[0], 255//len(self.genome)*stepAmount[1], 255//len(self.genome)*stepAmount[2])
+            if 80 <= self.genome[i] < 100: self.stepAmount[0]+=1
+            if 65 <= self.genome[i] < 80: self.stepAmount[1]+=1
+            if self.genome[i] < 20: self.stepAmount[2]+=1
+
 
 
         #self.speed = speed # или max speed и speed выбирается отдельно
@@ -126,7 +124,6 @@ class Cell:
 
     def die(self):
         self.isAlife = False
-        world.objectsCoordinates[int(self.cords[0])][int(self.cords[1])]=None
 
         #print("cell died, energy:", self.energy, "lifetime:", self.lifeTime)
 
@@ -248,20 +245,42 @@ class Cell:
                 self.genomeStep+=1
                 if self.genomeStep > len(self.genome)-1: self.genomeStep=0
 
-def saveData(obj, name):
-    path = f"{Path(__file__).parent.absolute()}/{name}.json"
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=4, ensure_ascii=False)
+class Sensor: # наследовать от cell / world?
+    pass
+
+class Actuator: # наследовать от cell / world?
+    pass
+
+visualMode = 0
+def visuals():
+    screen.fill((31, 31, 31))
+    #for i in range(SIM_HEIGHT):
+    #    pygame.draw.rect(screen, (i/SIM_HEIGHT*32, i/SIM_HEIGHT*32, i/SIM_HEIGHT*32), (0, i, SIM_WIDTH, 1))
+    #pygame.draw.rect(screen, (127, 127, 127), (0, 0, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+    #pygame.draw.rect(screen, (63, 63, 63), (0, SIM_HEIGHT/3 * multiplier, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
+
+
+    for i in world.objects:
+        col = None
+        if visualMode == 0: col = (255//len(i.genome)*i.stepAmount[0], 255//len(i.genome)*i.stepAmount[1], 255//len(i.genome)*i.stepAmount[2])
+        if visualMode == 1: col = (255//len(i.genome)*i.stepAmount[0], 0, 0)
+        if visualMode == 2: col = (0, 255//len(i.genome)*i.stepAmount[1], 0)
+        if visualMode == 3: col = (0, 0, 255//len(i.genome)*i.stepAmount[2])
+        if visualMode == 4: 
+            if i.energy == 0: col = (0, 0, 0)
+            elif i.energy > 255: col = (255, 255, 0)
+            else: col = (i.energy, i.energy, 0)
+
+        pygame.draw.rect(screen, col, (i.cords[0] * multiplier, i.cords[1] * multiplier, multiplier, multiplier))
+    
+    pygame.draw.rect(screen, "white", (world.player.cords[0] * multiplier, world.player.cords[1] * multiplier, multiplier, multiplier))
+
 
 pygame.init()
 screen = pygame.display.set_mode((SIM_WIDTH * multiplier, SIM_HEIGHT * multiplier))
 clock = pygame.time.Clock()
 running = True
 dt = 0
-
-timeToSave = 0
-dataToSave = []
-timesSaved = 0
 
 world.objects = [Cell([random.randint(0, SIM_WIDTH-1), random.randint(0, SIM_HEIGHT-1)]) for _ in range(200)]
 world.player = Cell([SIM_WIDTH//2, SIM_HEIGHT//2])
@@ -271,32 +290,23 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    screen.fill((31, 31, 31))
-    #for i in range(SIM_HEIGHT):
-    #    pygame.draw.rect(screen, (i/SIM_HEIGHT*32, i/SIM_HEIGHT*32, i/SIM_HEIGHT*32), (0, i, SIM_WIDTH, 1))
-    #pygame.draw.rect(screen, (127, 127, 127), (0, 0, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
-    #pygame.draw.rect(screen, (63, 63, 63), (0, SIM_HEIGHT/3 * multiplier, SIM_WIDTH * multiplier, SIM_HEIGHT/3 * multiplier))
 
 
     world.makeStep()
 
-    for i in range(len(world.objects)):
-        pygame.draw.rect(screen, world.objects[i].color, (world.objects[i].cords[0] * multiplier, world.objects[i].cords[1] * multiplier, multiplier, multiplier))
-    pygame.draw.rect(screen, "white", (world.player.cords[0] * multiplier, world.player.cords[1] * multiplier, multiplier, multiplier))
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_0]:
+        visualMode = 0
+    if keys[pygame.K_1]:
+        visualMode = 1
+    if keys[pygame.K_2]:
+        visualMode = 2
+    if keys[pygame.K_3]:
+        visualMode = 3
+    if keys[pygame.K_4]:
+        visualMode = 4
 
-    timeToSave+=1
-    cellsData=[]
-    if timeToSave>=100:
-        for i in world.objects:
-            cellsData.append([i.maxLifeTime, i.genome])
-        dataToSave.append([timesSaved, cellsData])
-        timesSaved+=1
-        timeToSave=0
-        print(timesSaved)
-
-    if timesSaved>=300: 
-        saveData(dataToSave, "result")
-        running=False
+    visuals()
 
     dt = clock.tick(1000) / 1000.0 # limits FPS to n fps
     pygame.display.flip()
