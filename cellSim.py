@@ -20,7 +20,7 @@ class World:
         for i in self.objects:
             i.update()
 
-    def makeStep(self):
+    def makeStep(self): # remove this function?
         self.update()
 
         alifeObjects = []
@@ -33,12 +33,12 @@ class World:
         self.playerMovement() # for testing and fun
 
     def generateLightMap(self):
-        lMap = [[None for _ in range(self.height)] for _ in range(self.width)]
-        for i in range(len(lMap)):
-            for j in range(len(lMap[0])):
+        lMap = [[10 for _ in range(self.height)] for _ in range(self.width)]
+        #for i in range(len(lMap)):
+        #    for j in range(len(lMap[0])):
                 #lMap[i][j] = i-j
-                if i<len(lMap)//2: lMap[i][j] = (len(lMap)//2 - (len(lMap)//2-i))//4
-                else: lMap[i][j] = (len(lMap)-i)//4
+        #        if i<len(lMap)//2: lMap[i][j] = (len(lMap)//2 - (len(lMap)//2-i))//4
+        #        else: lMap[i][j] = (len(lMap)-i)//4
         self.lightMap = lMap
         #print(lMap)
 
@@ -53,7 +53,7 @@ class World:
         if keys[pygame.K_SPACE]:
             self.player.replicate()
         if keys[pygame.K_e]:
-            self.player.biteCell()
+            self.player.removeCell()
         self.player.energy = 100
 
         if keys[pygame.K_UP]:
@@ -88,6 +88,12 @@ class World:
         self.objectsCoordinates[x][y]=obj
         self.objects.append(obj)
 
+    def removeObjectAt(self, x, y):
+        obj = self.getObjectAt(x, y)
+        if obj!=None: 
+            self.objectsCoordinates[x][y]=None
+            if obj in self.objects:
+                self.objects.remove(obj)
 
 world = World(SIM_WIDTH, SIM_HEIGHT)
 
@@ -232,6 +238,16 @@ class Cell:
 
         self.energy+=target_cell.energy//2 
         target_cell.energy = target_cell.energy//2
+
+    def removeCell(self): # ONLY for debug
+        target_x = int(self.cords[0]+self.rotation[0])
+        target_y = int(self.cords[1]+self.rotation[1])
+
+        #if world.isInBounds(target_x, target_y) == False: return
+
+        #if world.getObjectAt(target_x, target_y)==None or False: return
+
+        world.removeObjectAt(int(target_x), int(target_y))
 
     def visuallyDependentBehavior(self):
         target_x = self.cords[0]+self.rotation[0]
