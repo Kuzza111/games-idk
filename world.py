@@ -13,7 +13,12 @@ class World:
     def update(self):
         for i in self.objects:
             i.update()
-            if not i.isAlife: self.removeObjectAt(i.cords[0], i.cords[1])
+            #if not i.isAlife: self.removeObjectAt(i.cords[0], i.cords[1]) # iteration error?
+        alifeObjects = []
+        for i in self.objects:
+            if i.isAlife: alifeObjects.append(i)
+            else: self.objectsCoordinates[int(i.cords[0])][int(i.cords[1])] = None
+        self.objects = alifeObjects
         
         self.playerMovement() # for testing and fun, delete later
 
