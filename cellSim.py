@@ -46,6 +46,7 @@ class Cell:
 
     def die(self):
         self.isAlife = False
+        #world.handleDeath(self.cords)
 
         #print("cell died, energy:", self.energy, "lifetime:", self.lifeTime)
 

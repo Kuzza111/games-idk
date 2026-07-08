@@ -17,7 +17,7 @@ class World:
         alifeObjects = []
         for i in self.objects:
             if i.isAlife: alifeObjects.append(i)
-            else: self.objectsCoordinates[int(i.cords[0])][int(i.cords[1])] = None
+            else: self.objectsCoordinates[int(i.cords[0])][int(i.cords[1])]=None
         self.objects = alifeObjects
         
         self.playerMovement() # for testing and fun, delete later
@@ -81,8 +81,12 @@ class World:
     def removeObjectAt(self, x, y):
         obj = self.getObjectAt(x, y)
         if obj!=None: 
+            self.objects.remove(obj)
             self.objectsCoordinates[x][y]=None
-            if obj in self.objects:
-                self.objects.remove(obj)
+
+
+    # questionable?
+    def handleDeath(self, cords):
+        self.removeObjectAt(cords[0], cords[1])
 
 #    def getObject(self, obj)? 
