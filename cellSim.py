@@ -1,99 +1,10 @@
 import pygame
 import random
+from world import World
 
 SIM_WIDTH = 100
 SIM_HEIGHT = 100
 multiplier = 5
-
-class World:
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        self.objects = []
-        self.objectsCoordinates = [[None for _ in range(self.height)] for _ in range(self.width)]
-        self.player = None
-
-        self.lightMap = []
-        self.generateLightMap()
-
-    def update(self):
-        for i in self.objects:
-            i.update()
-
-    def makeStep(self): # remove this function?
-        self.update()
-
-        alifeObjects = []
-        for i in range(len(self.objects)):
-            if self.objects[i].isAlife: alifeObjects.append(self.objects[i])
-            else: self.objectsCoordinates[int(self.objects[i].cords[0])][int(self.objects[i].cords[1])]=None
-
-        self.objects = alifeObjects
-
-        self.playerMovement() # for testing and fun
-
-    def generateLightMap(self):
-        lMap = [[10 for _ in range(self.height)] for _ in range(self.width)]
-        #for i in range(len(lMap)):
-        #    for j in range(len(lMap[0])):
-                #lMap[i][j] = i-j
-        #        if i<len(lMap)//2: lMap[i][j] = (len(lMap)//2 - (len(lMap)//2-i))//4
-        #        else: lMap[i][j] = (len(lMap)-i)//4
-        self.lightMap = lMap
-        #print(lMap)
-
-    def playerMovement(self):
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:
-            self.player.moveForward()
-        if keys[pygame.K_a]:
-            self.player.turnLeft()
-        if keys[pygame.K_d]:
-            self.player.turnRight()
-        if keys[pygame.K_SPACE]:
-            self.player.replicate()
-        if keys[pygame.K_e]:
-            self.player.removeCell()
-        self.player.energy = 100
-
-        if keys[pygame.K_UP]:
-            if self.player.rotation == [0,-1]:
-                self.player.moveForward()
-            else: self.player.turnRight()
-        if keys[pygame.K_RIGHT]:
-            if self.player.rotation == [1,0]:
-                self.player.moveForward()
-            else: self.player.turnRight()
-        if keys[pygame.K_DOWN]:
-            if self.player.rotation == [0,1]:
-                self.player.moveForward()
-            else: self.player.turnRight()
-        if keys[pygame.K_LEFT]:
-            if self.player.rotation == [-1,0]:
-                self.player.moveForward()
-            else: self.player.turnRight()
-
-    def isInBounds(self, x, y):
-        if x<0 or y<0 or x>self.width-1 or y>self.height-1: return False
-        else: return True
-
-    def getObjectAt(self, x, y):
-        if self.isInBounds(x, y) == False: return False
-        else: return self.objectsCoordinates[x][y]
-       
-    def addObjectAt(self, x, y, obj):
-        if self.getObjectAt(x, y)!=None:
-            return
-        obj.cords = [x, y]
-        self.objectsCoordinates[x][y]=obj
-        self.objects.append(obj)
-
-    def removeObjectAt(self, x, y):
-        obj = self.getObjectAt(x, y)
-        if obj!=None: 
-            self.objectsCoordinates[x][y]=None
-            if obj in self.objects:
-                self.objects.remove(obj)
 
 world = World(SIM_WIDTH, SIM_HEIGHT)
 
@@ -116,7 +27,7 @@ class Cell:
             if 65 <= self.genome[i] < 80: self.stepAmount[1]+=1
             if self.genome[i] < 20: self.stepAmount[2]+=1
 
-
+        self.components = []
 
         #self.speed = speed # или max speed и speed выбирается отдельно
         #self.findRadius = None
@@ -126,7 +37,12 @@ class Cell:
         self.makeStep()       
         self.energy-=1
         self.lifeTime-=1
+
+        if self.energy>50: self.energy=50
         if self.energy<=0 or self.lifeTime==0: self.die()
+
+        for i in self.components:
+            i.update()
 
     def die(self):
         self.isAlife = False
@@ -153,22 +69,20 @@ class Cell:
         self.genomeStep+=1
         if self.genomeStep > len(self.genome)-1: self.genomeStep=0
 
+    def getFacing(self):
+        return [int(self.cords[0]+self.rotation[0]), int(self.cords[1]+self.rotation[1])]
+
     def moveForward(self):
         #сделать проверку на то заняты ли клетки между начальной и конечной (если добавить скорость)
 
         old_x = int(self.cords[0])
         old_y = int(self.cords[1])
 
-        target_x = int(self.cords[0]+self.rotation[0])
-        target_y = int(self.cords[1]+self.rotation[1])
+        facing = self.getFacing()
 
-        if world.isInBounds(target_x, target_y) == False: return
+        if world.getObjectAt(facing[0], facing[1])!=None or False: return
 
-        if world.getObjectAt(target_x, target_y)!=None or False: return
-        
-
-        self.cords[0]=target_x
-        self.cords[1]=target_y
+        self.cords=facing
 
         world.objectsCoordinates[int(self.cords[0])][int(self.cords[1])]=self
         world.objectsCoordinates[old_x][old_y]=None
@@ -189,12 +103,9 @@ class Cell:
         if self.energy<20:
             #print("not enough energy")
             return
-        target_x = int(self.cords[0]+self.rotation[0])
-        target_y = int(self.cords[1]+self.rotation[1])
+        facing = self.getFacing()
 
-        if world.isInBounds(target_x, target_y) == False: return
-
-        if world.getObjectAt(target_x, target_y)!=None or False: return
+        if world.getObjectAt(facing[0], facing[1])!=None or False: return
 
         #print("new cell added")
         newGenome = self.genome.copy()
@@ -215,24 +126,22 @@ class Cell:
         newCell.energy = self.energy//2
         self.energy = self.energy//2
 
-        world.addObjectAt(target_x, target_y, newCell)
+        world.addObjectAt(facing[0], facing[1], newCell)
 
     def generateRandomGenome(self, length): 
         return [random.randint(0,100) for _ in range(length)]
 
     def photosynthesize(self):
         self.energy+=world.lightMap[int(self.cords[0])][int(self.cords[1])]
-        if self.energy>50: self.energy=50
 
     def biteCell(self):
-        target_x = int(self.cords[0]+self.rotation[0])
-        target_y = int(self.cords[1]+self.rotation[1])
+        facing = self.getFacing()
 
-        if world.isInBounds(target_x, target_y) == False: return
+        if world.isInBounds(facing[0], facing[1]) == False: return
 
-        if world.getObjectAt(target_x, target_y)==None or False: return
+        if world.getObjectAt(facing[0], facing[1])==None or False: return
 
-        target_cell = world.objectsCoordinates[int(target_x)][int(target_y)]
+        target_cell = world.objectsCoordinates[facing[0]][facing[1]]
         if target_cell.energy<1:
             return
 
@@ -240,31 +149,39 @@ class Cell:
         target_cell.energy = target_cell.energy//2
 
     def removeCell(self): # ONLY for debug
-        target_x = int(self.cords[0]+self.rotation[0])
-        target_y = int(self.cords[1]+self.rotation[1])
+        facing = self.getFacing()
 
-        #if world.isInBounds(target_x, target_y) == False: return
+        if world.isInBounds(facing[0], facing[1]) == False: return
 
-        #if world.getObjectAt(target_x, target_y)==None or False: return
+        if world.getObjectAt(facing[0], facing[1])==None or False: return
 
-        world.removeObjectAt(int(target_x), int(target_y))
+        world.removeObjectAt(facing[0], facing[1])
 
     def visuallyDependentBehavior(self):
-        target_x = self.cords[0]+self.rotation[0]
-        target_y = self.cords[1]+self.rotation[1]
-        if world.isInBounds(int(target_x), int(target_y)) == False: return
+        facing = self.getFacing()
 
-        if world.objectsCoordinates[int(target_x)][int(target_y)]==None:
+        if world.isInBounds(facing[0], facing[1]) == False: return
+
+        if world.objectsCoordinates[facing[0]][facing[1]]==None:
             return
         else:
             for i in range(len(self.genome)//4):
                 self.genomeStep+=1
                 if self.genomeStep > len(self.genome)-1: self.genomeStep=0
 
-class Sensor: # наследовать от cell / world?
+class Component:
+    def __init__(self):
+        self.cost = 1
+    def update():
+        pass
+
+class Sensor(Component):
     pass
 
-class Actuator: # наследовать от cell / world?
+class Actuator(Component):
+    pass
+
+class Brain(Component):
     pass
 
 visualMode = 0
@@ -284,6 +201,7 @@ def visuals():
         if visualMode == 3: col = (0, 0, 255//len(i.genome)*i.stepAmount[2])
         if visualMode == 4: 
             if i.energy == 0: col = (0, 0, 0)
+            elif i.energy < 0: col = (0, 0, 0)
             elif i.energy > 255: col = (255, 255, 0)
             else: col = (i.energy, i.energy, 0)
 
@@ -308,7 +226,7 @@ while running:
             running = False
 
 
-    world.makeStep()
+    world.update()
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_0]:
